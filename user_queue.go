@@ -5,6 +5,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -39,6 +40,7 @@ type UserQueue struct {
 	activeUsers       map[string]*UserSession
 	mutex             sync.Mutex
 	lastCleanup       time.Time
+	queueFullHTML     string
 }
 
 // CreateConfig creates the default plugin configuration
@@ -52,8 +54,19 @@ func CreateConfig() *Config {
 	}
 }
 
+const (
+	queueFullHTMLPath = "static/queue-full.html" // Path relative to the plugin
+)
+
 // New creates a new user queue plugin
 func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
+	htmlContent, err := os.ReadFile(queueFullHTMLPath)
+	if err != nil {
+		// Fallback to default message if file can't be read
+		htmlContent = []byte("<html><body><h1>Service Unavailable</h1><p>" +
+			config.QueueFullMessage + "</p></body></html>")
+	}
+
 	return &UserQueue{
 		next:              next,
 		name:              name,
@@ -64,6 +77,7 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 		trustXFF:          config.TrustForwardedFor,
 		activeUsers:       make(map[string]*UserSession),
 		lastCleanup:       time.Now(),
+		queueFullHTML:     string(htmlContent),
 	}, nil
 }
 
@@ -194,5 +208,5 @@ func (q *UserQueue) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// Return 503 Service Unavailable
 	rw.Header().Set("Retry-After", "60")
 	rw.WriteHeader(http.StatusServiceUnavailable)
-	rw.Write([]byte(q.queueFullMessage))
+	rw.Write([]byte(q.queueFullHTML))
 }
