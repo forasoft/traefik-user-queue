@@ -1,0 +1,9 @@
+displayName: User Queue
+type: middleware
+import: github.com/forasoft/traefik-user-queue
+summary: Limits concurrent users to a maximum number and queues others
+testData:
+  maxUsers: 100
+  sessionTimeoutSeconds: 300
+  queueFullMessage: "The website is currently at maximum capacity. Please try again later."
+  trustForwardedFor: true
